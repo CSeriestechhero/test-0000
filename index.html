@@ -1,103 +1,46 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <title>Window Placement & Screen Enumeration Demo</title>
+
+<!DOCTYPE html><html lang="en">
+<head>
+  <title>Multi-Screen Window Placement Demo</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
+  <meta name="theme-color" content="#af0a0a"/>
+  <!-- https://developers.chrome.com/origintrials Cross-Screen Window Placement token for http://localhost:8000 -->
+  <meta http-equiv="origin-trial" content="AjzR9sWnRUEhCG99D0XuQ4If4CRSa2KbT83MTnMbyaAf+6sNPXG/wZeURTlrQv1LHEmaMwCqde5p+SrbXZLq9Q4AAABSeyJvcmlnaW4iOiJodHRwOi8vbG9jYWxob3N0OjgwMDAiLCJmZWF0dXJlIjoiV2luZG93UGxhY2VtZW50IiwiZXhwaXJ5IjoxNjAyNzEwOTgwfQ==">
+  <!-- https://developers.chrome.com/origintrials Cross-Screen Window Placement token for https://michaelwasserman.github.io -->
+  <meta http-equiv="origin-trial" content="AgqxuooBawe2ti8itw8PNi3wjElF5bpVqoy5a/8KRCMef+k24ujCgAWTmSp8lg9EwMszz35hJSOtt3rABVpAxgwAAABjeyJvcmlnaW4iOiJodHRwczovL21pY2hhZWx3YXNzZXJtYW4uZ2l0aHViLmlvOjQ0MyIsImZlYXR1cmUiOiJXaW5kb3dQbGFjZW1lbnQiLCJleHBpcnkiOjE2MDI3MTA1NDl9">
 </head>
-<body>
-<h3>Window Placement & Screen Enumeration Demo</h3>
-<div style="width:800px; padding:4px 0px;">
-<button id="open-window-button">Open window</button>
-URL:<input id="open-window-url" size="15" value="https:wikipedia.org"></input>
-Options:<input id="open-window-options" size="60" value='{"x":"50", "y":"100", "width":"400", "height":"200", "type":"window"}'></input>
-<button id="show-displays-button">Show displays</button>
-<button id="show-notification-button">Show notification</button>
-<button id="toggle-fullscreen-button">Toggle fullscreen</button>
-<button id="present-slide-button">Present slide</button>
-</div>
-<p></p>
-<canvas id="displays-canvas" width="800" height="600" style="border-style: solid"></canvas>
+<body><button onclick="fullscreenSlide()">Current Screen</button>
 
+
+
+<!-- Testing of iframe functionality and permissions: 
+  <iframe src="https://michaelwasserman.github.io/window-placement-demo/" style="width:800; height:600;" allow="fullscreen"></iframe>
+  <iframe src="https://permission.site" style="width:800; height:600;" allow="fullscreen,geolocation"></iframe>
+-->
+
+<script src="main.js"></script>
 <script>
+'use strict';
+window.addEventListener('load', () => {
+  if ('serviceWorker' in navigator)
+    navigator.serviceWorker.register('./sw.js');
 
-navigator.serviceWorker.register('/service-worker.js');
-
-document.getElementById('show-displays-button').onclick = async function() {
-  const displays = await navigator.screen.requestDisplays();
-  console.log("navigator.screen.requestDisplays returned " + displays.length + " displays:");
-  for (const display of displays) {
-    console.log(`'${display.name}' ${display.left},${display.top} ${display.width}x${display.height} ` +
-                `scaleFactor:${display.scaleFactor}, colorDepth:${display.colorDepth} ` +
-                `isPrimary:${display.isPrimary}, isInternal:${display.isInternal}`);
-  }
-
-  var canvas = document.getElementById('displays-canvas');
-  var context = canvas.getContext('2d');
-  context.clearRect(0, 0, canvas.width, canvas.height);
-
-  var scale = 1.0/10.0;
-  var screen_space = { left:0, top:0, right:0, bottom:0 };
-  for (const display of displays) {
-    screen_space.left = Math.min(screen_space.left, display.left);
-    screen_space.top = Math.min(screen_space.top, display.top);
-    screen_space.right = Math.max(screen_space.right, display.left + display.width);
-    screen_space.bottom = Math.max(screen_space.bottom, display.top + display.height);
-  }
-  scale = Math.min(canvas.getBoundingClientRect().width / (screen_space.right-screen_space.left),
-                    canvas.getBoundingClientRect().height / (screen_space.bottom-screen_space.top));
-
-  var colors = [ "#FF8888", "#88FF88", "#8888FF" ];
-  for (i = 0; i < displays.length; ++i) {
-    var display = displays[i];
-    console.log(`[${i}] '${display.name}' ${display.left},${display.top} ${display.width}x${display.height} ${display.isPrimary ? '(Primary)': ''}`);
-    console.log(`scaleFactor:${display.scaleFactor}, colorDepth:${display.colorDepth} isPrimary:${display.isPrimary}, isInternal:${display.isInternal}`);
-    context.fillStyle = colors[i%colors.length];
-    context.fillRect(display.left*scale, display.top*scale, display.width*scale, display.height*scale);
-    context.fillStyle = "#000000";
-    context.font = "15px Arial";
-    context.fillText(`[${i}] ${display.left},${display.top} ${display.width}x${display.height} ${display.isPrimary ? '(Primary)': ''}`, display.left*scale+10, display.top*scale+20);
-    context.fillText(`scaleFactor:${display.scaleFactor}, colorDepth:${display.colorDepth}`, display.left*scale+10, display.top*scale+40);
-    context.fillText(`isPrimary:${display.isPrimary}, isInternal:${display.isInternal}`, display.left*scale+10, display.top*scale+60);
-  }
-}
-
-document.getElementById('open-window-button').onclick = function() {
-  var url = document.getElementById('open-window-url').value;
-  var options = JSON.parse(document.getElementById('open-window-options').value);
-  navigator.serviceWorker.controller.postMessage({sender:"open-window-button", url:url, options:options});
-}
-
-document.getElementById('show-notification-button').onclick = function() {
-  Notification.requestPermission(function(result) {
-    if (result !== 'denied') { // result: 'allowed' / 'denied' / 'default'
-      navigator.serviceWorker.ready.then(function(registration) {
-        // Show notification; user clicks trigger "notificationclick".
-        registration.showNotification('Click to open a window!');
-      });
-    }
-  });
-}
-
-document.getElementById('present-slide-button').onclick = function() {
-  navigator.serviceWorker.controller.postMessage({sender:"present-slide-button"});
-}
-
-var fullscreen = false;
-document.getElementById('toggle-fullscreen-button').onclick = function() {
-  if (!fullscreen) {
-    document.body.requestFullscreen();
-    fullscreen = true;
-  } else {
-    document.exitFullscreen();
-    fullscreen = false;
-  }
-}
-
+  // Handle control button clicks and input events.
+  document.getElementById("open-window").addEventListener('click', openWindow);
+  // document.getElementById("open-windows").addEventListener('click', openWindows);
+  document.getElementById("update-screens").addEventListener('click', updateScreens);
+  // document.getElementById("show-notification").addEventListener('click', showNotification);
+  document.getElementById("toggle-fullscreen").addEventListener('click', toggleFullscreen);
+  document.getElementById("open-slide-window").addEventListener('click', openSlideWindow);
+  document.getElementById("open-notes-window").addEventListener('click', openNotesWindow);
+  document.getElementById("open-slide-and-notes-windows").addEventListener('click', openSlideAndNotesWindows);
+  document.getElementById("fullscreen-slide").addEventListener('click', () => { fullscreenSlide(null) });
+  document.getElementById("fullscreen-on-current-screen").addEventListener('click', () => { fullscreenSlide(null) });
+  document.getElementById("get-screens").addEventListener('click', updateScreens);
+});
 </script>
 
-<style>
-body { background-color:whitesmoke; font-family: "Arial", sans-serif; }
-div { background-color:lightgray; }
-button { background-color:rgb(149, 163, 204); border:none; padding:8px 10px; text-align:center; margin:5px; }
-input { margin:0px 5px; }
-</style>
-
-</body></html>
+</body>
+</html>
